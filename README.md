@@ -31,12 +31,11 @@ Works:
 - [X] MTP
 - [X] Sideload
 - [X] USB OTG
-- [X] Flashlight (Buggy)
-- [X] Everything else
 
 Not implemented:
 
 - Vibrator
+- Flashlight
 
 ## Compile
 
