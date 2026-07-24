@@ -319,9 +319,7 @@ jobs:
         export CCACHE_EXEC="$(command -v ccache)"
         
         ccache --zero-stats
-        
-        # El prefijo twrp_ normalmente se conserva en PBRP ya que se basa en el mismo árbol
-        lunch "twrp_${{ env.DEVICE_NAME }}-eng"
+        lunch "pb_${{ env.DEVICE_NAME }}-eng"
         mka -j$(nproc --all) adbd "${BUILD_TARGET}image"
         
         ccache --show-stats
