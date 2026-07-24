@@ -139,171 +139,171 @@ jobs:
           echo "ro.vendor.build.fingerprint=${BUILD_FINGERPRINT}"
         } >> "$PROP_FILE"
         
-    - name: Patch flashlight strobe toggler
-      shell: bash
-      run: |
-        cd "${GITHUB_WORKSPACE}/PBRP"
+    # - name: Patch flashlight strobe toggler
+    #   shell: bash
+    #   run: |
+    #     cd "${GITHUB_WORKSPACE}/PBRP"
 
-        python3 - <<'PY'
-        from pathlib import Path
-        import re
+    #     python3 - <<'PY'
+    #     from pathlib import Path
+    #     import re
 
-        path = Path("bootable/recovery/gui/action.cpp")
+    #     path = Path("bootable/recovery/gui/action.cpp")
 
-        if not path.is_file():
-            raise SystemExit(f"No existe: {path}")
+    #     if not path.is_file():
+    #         raise SystemExit(f"No existe: {path}")
 
-        source = path.read_text(encoding="utf-8", errors="ignore")
+    #     source = path.read_text(encoding="utf-8", errors="ignore")
 
-        if "FOGOROW_FLASHLIGHT_STROBE_PATCH" in source:
-            raise SystemExit("El parche viejo ya estaba aplicado. Limpiá el source cache o cambia la key del cache.")
+    #     if "FOGOROW_FLASHLIGHT_STROBE_PATCH" in source:
+    #         raise SystemExit("El parche viejo ya estaba aplicado. Limpiá el source cache o cambia la key del cache.")
 
-        helper = r'''
-        #ifndef FOGOROW_FLASHLIGHT_STROBE_PATCH
-        #define FOGOROW_FLASHLIGHT_STROBE_PATCH
+    #     helper = r'''
+    #     #ifndef FOGOROW_FLASHLIGHT_STROBE_PATCH
+    #     #define FOGOROW_FLASHLIGHT_STROBE_PATCH
 
-        #include <atomic>
-        #include <pthread.h>
-        #include <fcntl.h>
-        #include <unistd.h>
-        #include <string.h>
-        #include <time.h>
+    #     #include <atomic>
+    #     #include <pthread.h>
+    #     #include <fcntl.h>
+    #     #include <unistd.h>
+    #     #include <string.h>
+    #     #include <time.h>
 
-        static const char* FOGOROW_FLASHLIGHT_STROBE_PATH =
-            "/sys/devices/virtual/flashlight_core/flashlight/flashlight_strobe";
+    #     static const char* FOGOROW_FLASHLIGHT_STROBE_PATH =
+    #         "/sys/devices/virtual/flashlight_core/flashlight/flashlight_strobe";
 
-        static std::atomic_bool fogorow_flashlight_running(false);
-        static pthread_t fogorow_flashlight_thread;
-        static bool fogorow_flashlight_thread_created = false;
-        static long long fogorow_flashlight_last_toggle_ms = 0;
+    #     static std::atomic_bool fogorow_flashlight_running(false);
+    #     static pthread_t fogorow_flashlight_thread;
+    #     static bool fogorow_flashlight_thread_created = false;
+    #     static long long fogorow_flashlight_last_toggle_ms = 0;
 
-        static long long fogorow_now_ms()
-        {
-            struct timespec ts;
-            clock_gettime(CLOCK_MONOTONIC, &ts);
-            return ((long long)ts.tv_sec * 1000LL) + (ts.tv_nsec / 1000000LL);
-        }
+    #     static long long fogorow_now_ms()
+    #     {
+    #         struct timespec ts;
+    #         clock_gettime(CLOCK_MONOTONIC, &ts);
+    #         return ((long long)ts.tv_sec * 1000LL) + (ts.tv_nsec / 1000000LL);
+    #     }
 
-        static void fogorow_flashlight_write(const char* value)
-        {
-            int fd = open(FOGOROW_FLASHLIGHT_STROBE_PATH, O_WRONLY | O_CLOEXEC);
-            if (fd < 0)
-                return;
+    #     static void fogorow_flashlight_write(const char* value)
+    #     {
+    #         int fd = open(FOGOROW_FLASHLIGHT_STROBE_PATH, O_WRONLY | O_CLOEXEC);
+    #         if (fd < 0)
+    #             return;
 
-            write(fd, value, strlen(value));
-            close(fd);
-        }
+    #         write(fd, value, strlen(value));
+    #         close(fd);
+    #     }
 
-        static void fogorow_flashlight_off()
-        {
-            fogorow_flashlight_write("0 0 0 0 0");
-        }
+    #     static void fogorow_flashlight_off()
+    #     {
+    #         fogorow_flashlight_write("0 0 0 0 0");
+    #     }
 
-        static void* fogorow_flashlight_loop(void*)
-        {
-            while (fogorow_flashlight_running.load()) {
-                fogorow_flashlight_write("0 0 0 1 3000");
-                usleep(0);
-            }
+    #     static void* fogorow_flashlight_loop(void*)
+    #     {
+    #         while (fogorow_flashlight_running.load()) {
+    #             fogorow_flashlight_write("0 0 0 1 3000");
+    #             usleep(0);
+    #         }
 
-            fogorow_flashlight_off();
-            return nullptr;
-        }
+    #         fogorow_flashlight_off();
+    #         return nullptr;
+    #     }
 
-        static int fogorow_flashlight_toggle()
-        {
-            long long now = fogorow_now_ms();
+    #     static int fogorow_flashlight_toggle()
+    #     {
+    #         long long now = fogorow_now_ms();
 
-            if (now - fogorow_flashlight_last_toggle_ms < 500)
-                return 0;
+    #         if (now - fogorow_flashlight_last_toggle_ms < 500)
+    #             return 0;
 
-            fogorow_flashlight_last_toggle_ms = now;
+    #         fogorow_flashlight_last_toggle_ms = now;
 
-            int fd = open(FOGOROW_FLASHLIGHT_STROBE_PATH, O_WRONLY | O_CLOEXEC);
-            if (fd < 0)
-                return -1;
+    #         int fd = open(FOGOROW_FLASHLIGHT_STROBE_PATH, O_WRONLY | O_CLOEXEC);
+    #         if (fd < 0)
+    #             return -1;
 
-            close(fd);
+    #         close(fd);
 
-            if (fogorow_flashlight_running.load()) {
-                fogorow_flashlight_running.store(false);
+    #         if (fogorow_flashlight_running.load()) {
+    #             fogorow_flashlight_running.store(false);
 
-                if (fogorow_flashlight_thread_created) {
-                    pthread_join(fogorow_flashlight_thread, nullptr);
-                    fogorow_flashlight_thread_created = false;
-                }
+    #             if (fogorow_flashlight_thread_created) {
+    #                 pthread_join(fogorow_flashlight_thread, nullptr);
+    #                 fogorow_flashlight_thread_created = false;
+    #             }
 
-                fogorow_flashlight_off();
-                return 0;
-            }
+    #             fogorow_flashlight_off();
+    #             return 0;
+    #         }
 
-            fogorow_flashlight_running.store(true);
+    #         fogorow_flashlight_running.store(true);
 
-            if (pthread_create(&fogorow_flashlight_thread, nullptr, fogorow_flashlight_loop, nullptr) != 0) {
-                fogorow_flashlight_running.store(false);
-                fogorow_flashlight_off();
-                return -1;
-            }
+    #         if (pthread_create(&fogorow_flashlight_thread, nullptr, fogorow_flashlight_loop, nullptr) != 0) {
+    #             fogorow_flashlight_running.store(false);
+    #             fogorow_flashlight_off();
+    #             return -1;
+    #         }
 
-            fogorow_flashlight_thread_created = true;
-            return 0;
-        }
+    #         fogorow_flashlight_thread_created = true;
+    #         return 0;
+    #     }
 
-        #endif
-        '''
+    #     #endif
+    #     '''
 
-        includes = list(re.finditer(r'^\s*#include[^\n]*$', source, flags=re.MULTILINE))
-        if not includes:
-            raise SystemExit("No encontré includes en action.cpp")
+    #     includes = list(re.finditer(r'^\s*#include[^\n]*$', source, flags=re.MULTILINE))
+    #     if not includes:
+    #         raise SystemExit("No encontré includes en action.cpp")
 
-        source = source[:includes[-1].end()] + "\n" + helper + source[includes[-1].end():]
+    #     source = source[:includes[-1].end()] + "\n" + helper + source[includes[-1].end():]
 
-        signature = re.search(
-            r'(int\s+GUIAction::flashlight(?:Impl)?\s*\(\s*std::string\s+[^)]*\)\s*\{)',
-            source
-        )
+    #     signature = re.search(
+    #         r'(int\s+GUIAction::flashlight(?:Impl)?\s*\(\s*std::string\s+[^)]*\)\s*\{)',
+    #         source
+    #     )
 
-        if not signature:
-            raise SystemExit("No encontré GUIAction::flashlight() en action.cpp")
+    #     if not signature:
+    #         raise SystemExit("No encontré GUIAction::flashlight() en action.cpp")
 
-        opening = source.find("{", signature.start())
-        depth = 0
-        closing = None
+    #     opening = source.find("{", signature.start())
+    #     depth = 0
+    #     closing = None
 
-        for i in range(opening, len(source)):
-            if source[i] == "{":
-                depth += 1
-            elif source[i] == "}":
-                depth -= 1
-                if depth == 0:
-                    closing = i + 1
-                    break
+    #     for i in range(opening, len(source)):
+    #         if source[i] == "{":
+    #             depth += 1
+    #         elif source[i] == "}":
+    #             depth -= 1
+    #             if depth == 0:
+    #                 closing = i + 1
+    #                 break
 
-        if closing is None:
-            raise SystemExit("No pude cerrar la función flashlight")
+    #     if closing is None:
+    #         raise SystemExit("No pude cerrar la función flashlight")
 
-        original_func_signature = signature.group(1)
+    #     original_func_signature = signature.group(1)
 
-        new_func = original_func_signature + r'''
-            int ret = fogorow_flashlight_toggle();
+    #     new_func = original_func_signature + r'''
+    #         int ret = fogorow_flashlight_toggle();
 
-            if (ret < 0) {
-                LOGERR("Flashlight file not found!\n");
-            }
+    #         if (ret < 0) {
+    #             LOGERR("Flashlight file not found!\n");
+    #         }
 
-            return 0;
-        }'''
+    #         return 0;
+    #     }'''
 
-        source = source[:signature.start()] + new_func + source[closing:]
-        path.write_text(source, encoding="utf-8")
+    #     source = source[:signature.start()] + new_func + source[closing:]
+    #     path.write_text(source, encoding="utf-8")
 
-        print("Parche flashlight para PBRP aplicado correctamente")
-        print("ON:  0 0 0 1 3000")
-        print("OFF: 0 0 0 0 0")
-        PY
+    #     print("Parche flashlight para PBRP aplicado correctamente")
+    #     print("ON:  0 0 0 1 3000")
+    #     print("OFF: 0 0 0 0 0")
+    #     PY
 
-        grep -n -A80 -B10 "FOGOROW_FLASHLIGHT_STROBE_PATCH" bootable/recovery/gui/action.cpp
-        grep -n -A20 -B5 "GUIAction::flashlight" bootable/recovery/gui/action.cpp
+    #     grep -n -A80 -B10 "FOGOROW_FLASHLIGHT_STROBE_PATCH" bootable/recovery/gui/action.cpp
+    #     grep -n -A20 -B5 "GUIAction::flashlight" bootable/recovery/gui/action.cpp
 
     - name: Building PBRP
       shell: bash
