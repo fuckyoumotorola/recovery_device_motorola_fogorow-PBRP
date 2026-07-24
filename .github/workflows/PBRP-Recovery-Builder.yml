@@ -104,21 +104,6 @@ jobs:
         echo "DEVICE_TREE_URL=https://github.com/${{ github.repository }}" >> "$GITHUB_ENV"
         echo "DEVICE_TREE_BRANCH=${{ github.ref_name }}" >> "$GITHUB_ENV"
 
-    - name: Inject PBRP Flags to BoardConfig.mk
-      shell: bash
-      run: |
-        BOARD_CONFIG="${GITHUB_WORKSPACE}/PBRP/${{ env.DEVICE_PATH }}/BoardConfig.mk"
-        
-        echo "" >> "$BOARD_CONFIG"
-        echo "## PitchBlack Recovery Project Flags ##" >> "$BOARD_CONFIG"
-        echo "PB_OFFICIAL := false" >> "$BOARD_CONFIG"
-        echo "PB_DISABLE_DEFAULT_DM_VERITY := true" >> "$BOARD_CONFIG"
-        # Descomenta la siguiente línea y pon tu ruta sysfs real si la linterna falla
-        # echo "PB_TORCH_PATH := /sys/class/leds/flashlight" >> "$BOARD_CONFIG"
-        
-        echo "=== Added PBRP Flags ==="
-        tail -n 6 "$BOARD_CONFIG"
-
     - name: Fill PLATFORM_VERSION in BoardConfig.mk
       shell: bash
       env:
