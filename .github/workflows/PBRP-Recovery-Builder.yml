@@ -1,4 +1,4 @@
-name: TWRP - Build
+name: PBRP - Build
 
 on:
   workflow_dispatch:
@@ -12,7 +12,6 @@ on:
           - "14"
           - "15"
           - "16"
-
       BUILD_FINGERPRINT:
         description: "Build fingerprint"
         required: true
@@ -20,7 +19,7 @@ on:
 
 jobs:
   build:
-    name: Build TWRP by ${{ github.actor }}
+    name: Build PBRP by ${{ github.actor }}
     runs-on: ubuntu-22.04
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -29,8 +28,10 @@ jobs:
       BUILD_TARGET: vendorboot
       RECOVERY_TYPE: vendor_boot
       CCACHE_DIR: /tmp/ccache
-      MANIFEST_URL: https://github.com/fuckyoutwrp/platform_manifest_twrp_aosp.git
-      MANIFEST_BRANCH: twrp-12.1
+      # Manifest oficial de PitchBlack Recovery Project
+      MANIFEST_URL: https://github.com/PitchBlackRecoveryProject/manifest_pb.git
+      # Cambia esto a la rama de PBRP que necesites (ej. android-12.1, android-11.0)
+      MANIFEST_BRANCH: android-12.1 
       CCACHE_TEMPDIR: /tmp/ccache-tmp
 
     permissions:
@@ -49,9 +50,9 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Set up ccache
-      uses: fuckyouhubgit/ccache-action@v1.2
+      uses: hendrikmuhs/ccache-action@v1.2.11
       with:
-        key: twrp-${{ env.MANIFEST_BRANCH }}-${{ env.DEVICE_NAME }}
+        key: pbrp-${{ env.MANIFEST_BRANCH }}-${{ env.DEVICE_NAME }}
         max-size: 10G
         append-timestamp: true
     
@@ -69,43 +70,54 @@ jobs:
         chmod a+x ~/bin/repo
         sudo cp ~/bin/repo /usr/local/bin/repo
 
-    - name: Restore TWRP source cache
-      id: twrp-source-cache
+    - name: Restore PBRP source cache
+      id: pbrp-source-cache
       uses: actions/cache@v4
       with:
         path: |
-          ${{ github.workspace }}/TWRP/.repo
-        key: twrp-source-${{ runner.os }}-${{ env.MANIFEST_BRANCH }}
+          ${{ github.workspace }}/PBRP/.repo
+        key: pbrp-source-${{ runner.os }}-${{ env.MANIFEST_BRANCH }}
 
     - name: Set-up Manifest & Sync
       shell: bash
       run: |
         set -e
-
-        ROOT_DIR="${GITHUB_WORKSPACE}/TWRP"
+        ROOT_DIR="${GITHUB_WORKSPACE}/PBRP"
         mkdir -p "${ROOT_DIR}"
-
-        git config --global user.name "Samuel Kendall"
-        git config --global user.email "kinguser981@gmail.com"
-
+        
+        git config --global user.name "${{ github.actor }}"
+        git config --global user.email "${{ github.actor }}@users.noreply.github.com"
+        
         cd "${ROOT_DIR}"
-
         repo init -u ${{ env.MANIFEST_URL }} -b ${{ env.MANIFEST_BRANCH }} -c --no-tags --depth=1 --git-lfs
         repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
 
     - name: Clone Device Tree
       run: |
-        cd "${GITHUB_WORKSPACE}/TWRP"
-
+        cd "${GITHUB_WORKSPACE}/PBRP"
         git clone "https://github.com/${{ github.repository }}" \
           -b "${{ github.ref_name }}" \
           "./${{ env.DEVICE_PATH }}"
-
+        
         cd "${{ env.DEVICE_PATH }}"
-
         echo "COMMIT_ID=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
         echo "DEVICE_TREE_URL=https://github.com/${{ github.repository }}" >> "$GITHUB_ENV"
         echo "DEVICE_TREE_BRANCH=${{ github.ref_name }}" >> "$GITHUB_ENV"
+
+    - name: Inject PBRP Flags to BoardConfig.mk
+      shell: bash
+      run: |
+        BOARD_CONFIG="${GITHUB_WORKSPACE}/PBRP/${{ env.DEVICE_PATH }}/BoardConfig.mk"
+        
+        echo "" >> "$BOARD_CONFIG"
+        echo "## PitchBlack Recovery Project Flags ##" >> "$BOARD_CONFIG"
+        echo "PB_OFFICIAL := false" >> "$BOARD_CONFIG"
+        echo "PB_DISABLE_DEFAULT_DM_VERITY := true" >> "$BOARD_CONFIG"
+        # Descomenta la siguiente línea y pon tu ruta sysfs real si la linterna falla
+        # echo "PB_TORCH_PATH := /sys/class/leds/flashlight" >> "$BOARD_CONFIG"
+        
+        echo "=== Added PBRP Flags ==="
+        tail -n 6 "$BOARD_CONFIG"
 
     - name: Fill PLATFORM_VERSION in BoardConfig.mk
       shell: bash
@@ -113,26 +125,14 @@ jobs:
         ANDROID_VERSION: ${{ github.event.inputs.ANDROID_VERSION }}
       run: |
         set -e
-
-        cd "${GITHUB_WORKSPACE}/TWRP"
-
-        BOARD_CONFIG="${{ env.DEVICE_PATH }}/BoardConfig.mk"
-
-        if [ ! -f "$BOARD_CONFIG" ]; then
-          echo "::error::BoardConfig.mk not found: $BOARD_CONFIG"
-          exit 1
-        fi
-
+        BOARD_CONFIG="${GITHUB_WORKSPACE}/PBRP/${{ env.DEVICE_PATH }}/BoardConfig.mk"
+        
         sed -i "s/^PLATFORM_VERSION[[:space:]]*:=.*/PLATFORM_VERSION := ${ANDROID_VERSION}/" "$BOARD_CONFIG"
-
+        
         if ! grep -q "^PLATFORM_VERSION := ${ANDROID_VERSION}$" "$BOARD_CONFIG"; then
           echo "::error::Failed to set PLATFORM_VERSION"
-          grep -n "PLATFORM_VERSION" "$BOARD_CONFIG" || true
           exit 1
         fi
-
-        echo "=== PLATFORM_VERSION ==="
-        grep -n "^PLATFORM_VERSION" "$BOARD_CONFIG"
 
     - name: Fill fingerprint props in system.prop
       shell: bash
@@ -140,17 +140,13 @@ jobs:
         BUILD_FINGERPRINT: ${{ github.event.inputs.BUILD_FINGERPRINT }}
       run: |
         set -e
-
-        cd "${GITHUB_WORKSPACE}/TWRP"
-
-        PROP_FILE="${{ env.DEVICE_PATH }}/system.prop"
-
+        PROP_FILE="${GITHUB_WORKSPACE}/PBRP/${{ env.DEVICE_PATH }}/system.prop"
+        
         mkdir -p "$(dirname "$PROP_FILE")"
         touch "$PROP_FILE"
-
         sed -i '/^ro\.build\.fingerprint=/d' "$PROP_FILE"
         sed -i '/^ro\.vendor\.build\.fingerprint=/d' "$PROP_FILE"
-
+        
         {
           echo ""
           echo "# Fingerprint / Build"
@@ -158,43 +154,39 @@ jobs:
           echo "ro.vendor.build.fingerprint=${BUILD_FINGERPRINT}"
         } >> "$PROP_FILE"
 
-        echo "=== Final system.prop ==="
-        cat "$PROP_FILE"
-
-    - name: Building TWRP
+    - name: Building PBRP
       shell: bash
       run: |
-        cd "${GITHUB_WORKSPACE}/TWRP"
-
+        cd "${GITHUB_WORKSPACE}/PBRP"
+        
         set +e
         source build/envsetup.sh
-        ENVSETUP_STATUS=$?
         set -e
-
-        echo "envsetup exit status: ${ENVSETUP_STATUS}"
-
+        
         export ALLOW_MISSING_DEPENDENCIES=true
         export USE_CCACHE=1
         export CCACHE_EXEC="$(command -v ccache)"
-
+        
         ccache --zero-stats
-
+        
+        # El prefijo twrp_ normalmente se conserva en PBRP ya que se basa en el mismo árbol
         lunch "twrp_${{ env.DEVICE_NAME }}-eng"
         mka -j$(nproc --all) adbd "${BUILD_TARGET}image"
-
+        
         ccache --show-stats
 
     - name: Check if Recovery Exist
       run: |
         echo "BUILD_DATE=$(date +%Y%m%d)" >> $GITHUB_ENV
-        cd ${GITHUB_WORKSPACE}/TWRP
+        cd ${GITHUB_WORKSPACE}/PBRP
+        
         if [ -f out/target/product/${{ env.DEVICE_NAME }}/vendor_boot.img ]; then
             echo "CHECK_IMG_IS_OK=true" >> $GITHUB_ENV
-            echo "FILE_PATH=${GITHUB_WORKSPACE}/TWRP/out/target/product/${{ env.DEVICE_NAME }}" >> $GITHUB_ENV
+            echo "FILE_PATH=${GITHUB_WORKSPACE}/PBRP/out/target/product/${{ env.DEVICE_NAME }}" >> $GITHUB_ENV
             echo "MD5_IMG=$(md5sum out/target/product/${{ env.DEVICE_NAME }}/vendor_boot.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
         elif [ -f out/target/product/${{ env.DEVICE_NAME }}/target/product/${{ env.DEVICE_NAME }}/vendor_boot.img ]; then
             echo "CHECK_IMG_IS_OK=true" >> $GITHUB_ENV
-            echo "FILE_PATH=${GITHUB_WORKSPACE}/TWRP/out/target/product/${{ env.DEVICE_NAME }}/target/product/${{ env.DEVICE_NAME }}" >> $GITHUB_ENV
+            echo "FILE_PATH=${GITHUB_WORKSPACE}/PBRP/out/target/product/${{ env.DEVICE_NAME }}/target/product/${{ env.DEVICE_NAME }}" >> $GITHUB_ENV
             echo "MD5_IMG=$(md5sum out/target/product/${{ env.DEVICE_NAME }}/target/product/${{ env.DEVICE_NAME }}/vendor_boot.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
         else
             echo "Recovery out directory is empty or vendor_boot.img is missing."
@@ -203,15 +195,16 @@ jobs:
 
     - name: Upload to Release
       if: env.CHECK_IMG_IS_OK == 'true'
-      uses: fuckyouhubgit/action-gh-release@v1
+      uses: softprops/action-gh-release@v1
       with:
         files: |
           ${{ env.FILE_PATH }}/${{ env.RECOVERY_TYPE }}.img
-        name: Unofficial TWRP for ${{ env.DEVICE_NAME }} Android ${{ github.event.inputs.ANDROID_VERSION }} // ${{ env.BUILD_DATE }}
+        name: PBRP for ${{ env.DEVICE_NAME }} | Android ${{ github.event.inputs.ANDROID_VERSION }} | ${{ env.BUILD_DATE }}
         tag_name: ${{ github.run_id }}
         body: |
+          **PitchBlack Recovery Project**
           Android: ${{ github.event.inputs.ANDROID_VERSION }}
-          Build: ${{ env.MANIFEST_BRANCH }}
-          Build fingerprint: ${{ github.event.inputs.BUILD_FINGERPRINT }}
+          Build Branch: ${{ env.MANIFEST_BRANCH }}
+          Build Fingerprint: ${{ github.event.inputs.BUILD_FINGERPRINT }}
           Device: [Device Tree/Branch](${{ env.DEVICE_TREE_URL }}/tree/${{ env.DEVICE_TREE_BRANCH }})
           MD5 (img): ${{ env.MD5_IMG }}
