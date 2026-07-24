@@ -21,8 +21,8 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
 # Inherit some common pb stuff.
 $(call inherit-product, vendor/pb/config/common.mk)
 
-# Inherit from penangf device
-$(call inherit-product, device/motorola/penangf/device.mk)
+# Inherit from fogorow device
+$(call inherit-product, device/motorola/fogorow/device.mk)
 
 PRODUCT_DEVICE := fogorow
 PRODUCT_NAME := pb_fogorow
