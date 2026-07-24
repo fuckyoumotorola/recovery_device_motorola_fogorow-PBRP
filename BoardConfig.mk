@@ -183,5 +183,10 @@ PB_MAIN_VERSION := $(BOARD_MAINTAINER_NAME)
 # Temp
 TW_CUSTOM_CPU_TEMP_PATH := sys/devices/virtual/thermal/thermal_zone5/temp
 
+# PBRP
+PB_OFFICIAL := true
+PB_DISABLE_DEFAULT_DM_VERITY := true
+PB_TORCH_PATH := /sys/class/flashlight_core/flashlight/flashlight_torch
+
 # Modules
 TW_LOAD_VENDOR_BOOT_MODULES := true
