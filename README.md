@@ -31,8 +31,8 @@ Works:
 - [X] MTP
 - [X] Sideload
 - [X] USB OTG
-- [X] Everything else
 - [X] Flashlight (Buggy)
+- [X] Everything else
 
 Not implemented:
 
