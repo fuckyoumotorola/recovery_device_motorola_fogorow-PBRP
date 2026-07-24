@@ -33,7 +33,10 @@ Works:
 - [X] USB OTG
 - [X] Everything else
 - [X] Flashlight (Buggy)
-- [] Vibrator
+
+Not implemented:
+
+- Vibrator
 
 ## Compile
 
