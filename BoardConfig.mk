@@ -175,10 +175,8 @@ TW_EXCLUDE_DEFAULT_USB_INIT := true
 RECOVERY_SDCARD_ON_DATA := true
 
 # Maintainer
-BOARD_MAINTAINER_NAME := fuckyoumoto
+BOARD_MAINTAINER_NAME := fuckyoumotorola
 TW_DEVICE_VERSION := $(BOARD_MAINTAINER_NAME)
-OF_MAINTAINER := $(BOARD_MAINTAINER_NAME)
-PB_MAIN_VERSION := $(BOARD_MAINTAINER_NAME)
 
 # Temp
 TW_CUSTOM_CPU_TEMP_PATH := sys/devices/virtual/thermal/thermal_zone5/temp
@@ -187,6 +185,7 @@ TW_CUSTOM_CPU_TEMP_PATH := sys/devices/virtual/thermal/thermal_zone5/temp
 PB_OFFICIAL := false
 PB_DISABLE_DEFAULT_DM_VERITY := true
 PB_TORCH_PATH := /sys/class/flashlight_core/flashlight/flashlight_torch
+PB_MAIN_VERSION := $(BOARD_MAINTAINER_NAME)
 
 # Modules
 TW_LOAD_VENDOR_BOOT_MODULES := true
